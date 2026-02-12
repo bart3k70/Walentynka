@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>💘 Walentynka?</title>
   <style>
-    :root { --bg1:#fff0f6; --bg2:#ffe8f1; }
+    :root { --bg1:#fff0f6; --bg2:#ffe8f1; --safe-gap:22px; }
     * { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
     body{
       margin:0; min-height:100vh; display:grid; place-items:center;
       background: radial-gradient(1200px 800px at 20% 20%, var(--bg2), var(--bg1));
       overflow:hidden;
+      padding:20px;
     }
     .card{
       width:min(560px, 92vw);
@@ -25,13 +26,18 @@
     h1{ margin:0 0 10px; font-size: clamp(26px, 4vw, 36px); }
     p{ margin:0 0 18px; opacity:.8; }
     .buttons{
-      position:relative;
       display:flex;
       justify-content:center;
       align-items:center;
-      gap:20px;
-      margin-top:20px;
-      height:140px;
+      flex-wrap:wrap;
+      gap:var(--safe-gap);
+      margin-top:24px;
+      padding:var(--safe-gap);
+      min-height:140px;
+      width:100%;
+    }
+    .buttons.stacked{
+      flex-direction:column;
     }
     button{
       border:0;
@@ -43,6 +49,7 @@
       box-shadow: 0 10px 22px rgba(0,0,0,.08);
       user-select:none;
       touch-action: manipulation;
+      transform-origin:center;
     }
     #yes{
       background: linear-gradient(135deg, #ff4d8d, #ff7ab6);
@@ -53,7 +60,8 @@
       background: rgba(255,255,255,.9);
       border:1px solid rgba(0,0,0,.08);
       color:#333;
-      position:static;
+      min-width:98px;
+      min-height:48px;
     }
     button:active{ transform: scale(.98); }
     #yes:hover{ transform: translateY(-1px); }
@@ -65,7 +73,7 @@
     }
     .success h2{ margin:0 0 8px; font-size: clamp(26px, 4vw, 34px); }
     .success .big{ font-size: clamp(44px, 7vw, 70px); line-height:1; }
-    .hint{ margin-top:10px; font-size:14px; opacity:.7; }
+    .hint{ margin-top:16px; font-size:14px; opacity:.7; }
 
     @keyframes pop { from{ transform: scale(.96); opacity:.4 } to{ transform: scale(1); opacity:1 } }
 
@@ -87,7 +95,7 @@
 <body>
   <div class="card" id="card">
     <div id="ask">
-      <h1>Czy będziesz moją walentynką? 💘</h1>
+      <h1>Czy zostaniesz moją walentynką? 💘</h1>
       <p>Wybierz mądrze 😇</p>
 
       <div class="buttons" id="arena">
@@ -95,13 +103,13 @@
         <button id="no">Nie 🙈</button>
       </div>
 
-      <div class="hint">Tip: „Nie” jest trochę nieśmiałe…</div>
+      <div class="hint">Pamiętaj że wiem gdzie mieszkasz</div>
     </div>
 
     <div class="success" id="success">
       <div class="big">🎉💞</div>
-      <h2>YEEES! Wiedziałem! 😍</h2>
-      <p>Najlepsza walentynka na świecie 🥹❤️</p>
+      <h2>Wiedziałem że dobrze wybierzesz😏😍</h2>
+      <p>Jesteś najlepsza❤️</p>
     </div>
   </div>
 
@@ -112,46 +120,73 @@
     const ask = document.getElementById("ask");
     const success = document.getElementById("success");
 
+    const safeGap = 22;
     let noCount = 0;
-    let noMoved = false;
 
     function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
 
-    function moveNoButton() {
-      if (!noMoved) {
-        const arenaRect = arena.getBoundingClientRect();
+    function updateArenaSize(yesScale){
+      const yesRect = yesBtn.getBoundingClientRect();
+      const noRect = noBtn.getBoundingClientRect();
+      const minHeight = Math.max(140, yesRect.height + safeGap * 2, noRect.height + safeGap * 2);
+      const minWidth = Math.max(0, yesRect.width + noRect.width + safeGap * 3);
+      arena.style.minHeight = `${Math.ceil(minHeight)}px`;
+      arena.style.minWidth = `${Math.ceil(minWidth)}px`;
+      arena.classList.toggle("stacked", yesScale >= 2.1);
+    }
+
+    function placeNoWithoutOverlap() {
+      const yesRect = yesBtn.getBoundingClientRect();
+      const minSeparation = safeGap;
+      const escapeX = Math.min(300, 36 + noCount * 24);
+      const escapeY = Math.min(190, 22 + noCount * 16);
+      let bestX = 0;
+      let bestY = 0;
+      let bestDistance = -1;
+
+      for (let i = 0; i < 30; i++) {
+        const candidateX = (Math.random() - 0.5) * escapeX;
+        const candidateY = (Math.random() - 0.5) * escapeY;
+        noBtn.style.translate = `${candidateX}px ${candidateY}px`;
+
         const noRect = noBtn.getBoundingClientRect();
-        const left = noRect.left - arenaRect.left;
-        const top = noRect.top - arenaRect.top;
+        const overlapX = Math.max(0, Math.min(yesRect.right, noRect.right) - Math.max(yesRect.left, noRect.left));
+        const overlapY = Math.max(0, Math.min(yesRect.bottom, noRect.bottom) - Math.max(yesRect.top, noRect.top));
 
-        noBtn.style.position = "absolute";
-        noBtn.style.left = left + "px";
-        noBtn.style.top = top + "px";
+        if (overlapX === 0 || overlapY === 0) {
+          const horizontalGap = Math.max(0, Math.max(yesRect.left - noRect.right, noRect.left - yesRect.right));
+          const verticalGap = Math.max(0, Math.max(yesRect.top - noRect.bottom, noRect.top - yesRect.bottom));
+          const isSafe = horizontalGap >= minSeparation || verticalGap >= minSeparation;
+          if (isSafe) {
+            return;
+          }
+        }
 
-        noMoved = true;
+        const centerDx = (noRect.left + noRect.width / 2) - (yesRect.left + yesRect.width / 2);
+        const centerDy = (noRect.top + noRect.height / 2) - (yesRect.top + yesRect.height / 2);
+        const distance = Math.hypot(centerDx, centerDy);
+
+        if (distance > bestDistance) {
+          bestDistance = distance;
+          bestX = candidateX;
+          bestY = candidateY;
+        }
       }
 
-      const rect = arena.getBoundingClientRect();
-      const btnRect = noBtn.getBoundingClientRect();
+      noBtn.style.translate = `${bestX}px ${bestY}px`;
+    }
 
-      const padding = 8;
-      const maxX = rect.width - btnRect.width - padding;
-      const maxY = rect.height - btnRect.height - padding;
-
-      const x = Math.random() * maxX + padding;
-      const y = Math.random() * maxY + padding;
-
-      noBtn.style.left = x + "px";
-      noBtn.style.top  = y + "px";
-
+    function moveNoButton() {
       noCount++;
 
-      const yesScale = 1 + clamp(noCount * 0.08, 0, 0.9);
+      const yesScale = 1 + clamp(noCount * 0.14, 0, 4.4);
       yesBtn.style.transform = `scale(${yesScale})`;
 
-      let noScale = 1 - noCount * 0.05;
-      noScale = Math.max(noScale, 0.7);
+      const noScale = Math.max(1 - noCount * 0.05, 0.7);
       noBtn.style.transform = `scale(${noScale})`;
+
+      updateArenaSize(yesScale);
+      placeNoWithoutOverlap();
     }
 
     noBtn.addEventListener("click", (e) => {
@@ -186,6 +221,8 @@
         setTimeout(() => h.remove(), 1900);
       }
     }
+
+    updateArenaSize(1);
   </script>
 </body>
 </html>
